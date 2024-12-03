@@ -1,8 +1,23 @@
-FOLDER_IMAGES = "./fake_test"
-FOLDER_SCORES = "./fisiere_solutie/fake_test/342_Chirus_Mina_Sebastian/"
+#####################################
+# TRAIN
+#####################################
+FOLDER_IMAGES = "./antrenare"
+FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
+FOLDER_GROUND_TRUTH = "./antrenare/"
+ROUNDS_FIRST = 1
+ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
+
+#####################################
+# TEST
+#####################################
+# FOLDER_IMAGES = "./fake_test"
+# FOLDER_SCORES = "./fisiere_solutie/fake_test/342_Chirus_Mina_Sebastian/"
+# FOLDER_GROUND_TRUTH = "./fake_test_gt/"
+# ROUNDS_FIRST = 1
+# ROUNDS_LAST = 1 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
+
 FOLDER_TEMPLATES = "./templates/patches/"
-ROUNDS_START = 1
-ROUNDS_END = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
+
 
 box_size = 90
 boxes = 14

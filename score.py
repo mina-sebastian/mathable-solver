@@ -4,7 +4,7 @@ import os
 import cv2 as cv
 import numpy as np
 from extractor import extrage_careu, show_image, getLines, get_patches
-from config import box_size, boxes, total_size, game_board, starting_points, initial_signs, pieces, numbers, ROUNDS_START, ROUNDS_END, FOLDER_IMAGES, FOLDER_TEMPLATES, FOLDER_SCORES
+from config import box_size, boxes, total_size, game_board, starting_points, initial_signs, pieces, numbers, ROUNDS_FIRST, ROUNDS_LAST, FOLDER_IMAGES, FOLDER_TEMPLATES, FOLDER_SCORES
 
 
 
@@ -185,16 +185,8 @@ def get_files(fast=False):
     return rez
 
 
-def preditct_number(game_board, current_points, patch, patch_padded, y, x, verbose=0):
+def preditct_number(game_board, current_points, patch, patch_padded, y, x, deep_pieces, verbose=0):
     possible_results = set()
-
-    deep_pieces = deepcopy(pieces)
-    for current_position in current_points:
-        if current_position in starting_points:
-            continue
-        nb = game_board[current_position[0]][current_position[1]]
-        nb = isinstance(nb, str) and int(nb) or nb
-        deep_pieces[nb] -= 1
 
     # get the possible numbers
     for i in [-1, 0, 1]:
@@ -239,9 +231,9 @@ def preditct_number(game_board, current_points, patch, patch_padded, y, x, verbo
                 possible_results.add(nb_2 - nb_1)
             if (nb_1 * nb_2) in numbers:
                 possible_results.add(nb_1 * nb_2)
-            if nb_2 != 0 and nb_1 / nb_2 in numbers and nb_1 % nb_2 == 0:
+            if nb_2 != 0 and nb_1 // nb_2 in numbers and nb_1 % nb_2 == 0:
                 possible_results.add(nb_1 // nb_2)
-            if nb_1 != 0 and nb_2 / nb_1 in numbers and nb_2 % nb_1 == 0:
+            if nb_1 != 0 and nb_2 // nb_1 in numbers and nb_2 % nb_1 == 0:
                 possible_results.add(nb_2 // nb_1)
 
             if verbose >= 2:
@@ -361,7 +353,7 @@ upper_patch = np.array([214, 255, 231])
 
 init_game()
 files = get_files(True)
-for round in range(1, 5):
+for round in range(ROUNDS_FIRST, ROUNDS_LAST + 1):
     # print(files[str(i)])
     prev_patches = None
     prev_board = None
@@ -373,6 +365,14 @@ for round in range(1, 5):
 
     score_pointer = 1
     change_turn_pos = files[round]["turns"][1][1]
+
+    deep_pieces = deepcopy(pieces)
+    # for current_position in current_points:
+    #     if current_position in starting_points:
+    #         continue
+    #     nb = game_board[current_position[0]][current_position[1]]
+    #     nb = isinstance(nb, str) and int(nb) or nb
+        
     
     for img_path in files[round]["paths"]:
         print(round, turn)
@@ -437,7 +437,8 @@ for round in range(1, 5):
                     chosen = patch
                     chosen_x, chosen_y = x, y
             if chosen is not None:
-                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x)
+                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x, deep_pieces=deep_pieces)
+                deep_pieces[predicted] -= 1
                 score += predicted
                 current_board[chosen_y][chosen_x] = predicted
                 current_points.append((chosen_y, chosen_x))
@@ -475,7 +476,8 @@ for round in range(1, 5):
                 verb = 0
                 if verb >= 2:
                     show_image('res', res)
-                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x, verbose=verb)
+                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x, deep_pieces=deep_pieces, verbose=verb)
+                deep_pieces[predicted] -= 1
                 bonus = get_bonus_score(current_board, current_points, chosen_y, chosen_x, predicted)
                 # print('BONUS:', bonus)
                 if current_board[chosen_y][chosen_x] == '3x':
@@ -506,7 +508,7 @@ for round in range(1, 5):
     idx = 0
     # print(scores)
     for lines in files[round]["turns"]:
-        print(lines, idx)
+        # print(lines, idx)
         if idx >= len(scores):
             rez_score += f"{lines[0]} {lines[1]} {score}"
             break

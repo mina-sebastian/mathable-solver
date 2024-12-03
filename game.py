@@ -1,3 +1,5 @@
+from config import ROUNDS_FIRST, ROUNDS_LAST, FOLDER_SCORES, FOLDER_GROUND_TRUTH
+
 def compare_annotations_position_token(filename_predicted,filename_gt,verbose=0):
 	p = open(filename_predicted,"rt")  	
 	gt = open(filename_gt,"rt") 
@@ -29,10 +31,10 @@ def compare_annotations_position_token(filename_predicted,filename_gt,verbose=0)
 	return points_positions, points_tokens
 
 #change this on your machine pointing to your results (txt files)
-predictions_path_root = "./fisiere_solutie/fake_test/342_Chirus_Mina_Sebastian/"
+predictions_path_root = FOLDER_SCORES
 
 #change this on your machine to point to the ground-truth test
-gt_path_root = "./fake_test_gt/"
+gt_path_root = FOLDER_GROUND_TRUTH
 
 
 
@@ -66,7 +68,7 @@ def compare_annotations_score(filename_predicted,filename_gt,verbose=0):
 #change this to 1 if you want to print results at each turn
 verbose = 0
 total_points = 0
-for game in range(1,2):
+for game in range(ROUNDS_FIRST,ROUNDS_LAST+1):
 # change this for game in range(1,5):
 	points_score = 0
 	for turn in range(1,51):
