@@ -259,14 +259,14 @@ def find_color_values_using_trackbar(frame):
                 break
     cv.destroyAllWindows()
 
-def get_patches(image_hsv, lines_vertical, lines_horizontal):
+def get_patches(image_hsv, lines_vertical, lines_horizontal, padding=0):
     rez = np.zeros((boxes, boxes), dtype='object')
     for i in range(len(lines_horizontal)-1):
         for j in range(len(lines_vertical)-1):
-            y_min = lines_vertical[j][0][0]
-            y_max = lines_vertical[j + 1][1][0]
-            x_min = lines_horizontal[i][0][1]
-            x_max = lines_horizontal[i + 1][1][1]
+            y_min = max(lines_vertical[j][0][0] - padding, 0)
+            y_max = min(lines_vertical[j + 1][1][0] + padding, total_size)
+            x_min = max(lines_horizontal[i][0][1] - padding, 0)
+            x_max = min(lines_horizontal[i + 1][1][1] + padding, total_size)
             patch = image_hsv[x_min:x_max, y_min:y_max].copy()
             patch = cv.resize(patch, (box_size, box_size))
             # show_image('patch', patch, True, 100)
@@ -308,50 +308,69 @@ def determina_configuratie_careu_ox(img_name, image_hsv, lines_horizontal, lines
             patch_mask_box = thresh_boxes[x_min:x_max, y_min:y_max].copy()
             #completati codul aici
             mean_mask_box = np.mean(patch_mask_box)
-            if mean_mask_box > 127:
-                patch = image_hsv[x_min:x_max, y_min:y_max].copy()
-                cv.imwrite(f'./tables/patches/{img_name}_{i}_{j}.jpg', patch)
-                matrix[i, j] = '1'
+            # if mean_mask_box > 30:
+            patch = image_hsv[x_min:x_max, y_min:y_max].copy()
+            cv.imwrite(f'./tables/patches/{img_name}_{i}_{j}.jpg', patch)
+            matrix[i, j] = '1'
                 # show_image('patch', patch, True, 100)
             
     return matrix
-if __name__ == '__main__':
-    file_path = './antrenare/'
-    for filename in os.listdir(file_path):
-        if filename.endswith('.jpg'):
-            img = cv.imread(file_path + filename)
-            print(filename)
-            result, result_sharpened = extrage_careu(img)
-            show_image('result', result)
-            
-            lines_vertical, lines_horizontal = getLines(result)
-
-            rez = determina_configuratie_careu_ox(filename, result, lines_horizontal, lines_vertical)
-            # print(rez)
-
-            # for line in lines_vertical:
-            #     cv.line(result, line[0], line[1], (0, 255, 0), 5)
-            # for line in lines_horizontal:
-            #     cv.line(result, line[0], line[1], (0, 0, 255), 5)
-
-            # result = cv.resize(result, (0, 0), fx=0.3, fy=0.3)
-            for i in range(boxes):
-                for j in range(boxes):
-                    if rez[j, i] == '1':
-                        cv.rectangle(result, (i * box_size, j * box_size), ((i + 1) * box_size, (j + 1) * box_size), (0, 0, 255), 2)
-            show_image('Grid', result)
-
-    # for filename in os.listdir('./tables/'):
+# if __name__ == '__main__':
+    # file_path = './antrenare/'
+    # for filename in os.listdir(file_path):
     #     if filename.endswith('.jpg'):
-    #         img = cv.imread('./tables/' + filename)
+    #         img = cv.imread(file_path + filename)
+    #         print(filename)
+    #         result, result_sharpened = extrage_careu(img)
+    #         show_image('result', result)
+            
+    #         lines_vertical, lines_horizontal = getLines(result)
+
+    #         rez = determina_configuratie_careu_ox(filename, result, lines_horizontal, lines_vertical)
+    #         # print(rez)
+
+    #         # for line in lines_vertical:
+    #         #     cv.line(result, line[0], line[1], (0, 255, 0), 5)
+    #         # for line in lines_horizontal:
+    #         #     cv.line(result, line[0], line[1], (0, 0, 255), 5)
+
+    #         # result = cv.resize(result, (0, 0), fx=0.3, fy=0.3)
+    #         for i in range(boxes):
+    #             for j in range(boxes):
+    #                 if rez[j, i] == '1':
+    #                     cv.rectangle(result, (i * box_size, j * box_size), ((i + 1) * box_size, (j + 1) * box_size), (0, 0, 255), 2)
+    #         show_image('Grid', result)
+
+    # template_dir = './templates/patches/'
+    # if not os.path.exists(template_dir):
+    #     os.makedirs(template_dir)
+    # for filename in os.listdir('./'):
+    #     if filename.endswith('.jpg'):
+    #         img = cv.imread('./' + filename)
+
+    #         result, result_sharp = extrage_careu(img)
             
             
     #         lines_vertical, lines_horizontal = getLines(result)
+
+    #         rez = determina_configuratie_careu_ox(filename, result, lines_horizontal, lines_vertical)
+
+    #         patches = get_patches(result, lines_vertical, lines_horizontal)
 
     #         for line in lines_vertical:
     #             cv.line(result, line[0], line[1], (0, 255, 0), 5)
     #         for line in lines_horizontal:
     #             cv.line(result, line[0], line[1], (0, 0, 255), 5)
+
+    #         for i in range(boxes ** 2):
+    #             x = i % boxes
+    #             y = i // boxes
+    #             if rez[y, x] == '1':
+    #                 imshow = patches[x][y].copy()
+    #                 show_image('patch', imshow, True, 100)
+    #                 cv.imwrite(f'{template_dir}{filename}_{x}_{y}.jpg', imshow)
+
+
     #         show_image('Grid', result)
 
     # files = os.listdir('./tables/patches/')

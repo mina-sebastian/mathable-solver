@@ -1,11 +1,14 @@
+from copy import deepcopy
+import math
 import os
 import cv2 as cv
 import numpy as np
 from extractor import extrage_careu, show_image, getLines, get_patches
-from config import box_size, boxes, total_size, game_board, starting_points, initial_signs
+from config import box_size, boxes, total_size, game_board, starting_points, initial_signs, pieces, numbers, ROUNDS_START, ROUNDS_END, FOLDER_IMAGES, FOLDER_TEMPLATES, FOLDER_SCORES
 
-FOLDER_TRAIN = "./antrenare"
-FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
+
+
+templates = {}
 
 def format_chess_like_position(y, x):
     return f"{y + 1}{chr(ord('A') + (x))}"
@@ -24,23 +27,84 @@ def write_annotation_file(round, turn, current_pos, current_token):
     with open(file_path, "w") as file:
         file.write(f"{current_pos} {current_token}")
     
+# def show_in_grid():
+#     total_size_x = 0
+#     total_size_y = 0
+#     for nb in numbers:
+#         total_size_x += templates[nb].shape[1]
+#         total_size_y += templates[nb].shape[0]
+#     collage = np.zeros((total_size_y, total_size_x, 3), dtype=np.uint8)
+#     x = 0
+#     y = 0
+#     for nb in numbers:
+#         collage[y:y+templates[nb].shape[0], x:x+templates[nb].shape[1]] = templates[nb]
+#         x += templates[nb].shape[1]
+#         if x >= total_size_x:
+#             x = 0
+#             y += 90
+#     find_color_values_using_trackbar(collage)
+#     show_image('collage', collage)
+
+def sharp_n_thresh(img):
+    image_m_blur = cv.medianBlur(img,3)
+    image_g_blur = cv.GaussianBlur(image_m_blur, (0, 0), 5)
+    image_sharpened = cv.addWeighted(image_m_blur, 1.2, image_g_blur, -0.8, 0)
+    _, thresh = cv.threshold(image_sharpened, 0, 255, cv.THRESH_BINARY)
+    thresh = cv.bitwise_not(thresh)
+    return thresh
 
 def init_game():
     print("-*-"*10)
     print("SETTING UP FOLDERS...")
     print("-*-"*10)
 
-    if not os.path.exists(FOLDER_TRAIN):
-        print("NU EXISTA FOLDERUL DE TRAINING", FOLDER_TRAIN)
-        os.makedirs(FOLDER_TRAIN)
+    if not os.path.exists(FOLDER_IMAGES):
+        print("NU EXISTA FOLDERUL CU IMAGINI", FOLDER_IMAGES)
+        exit(1)
+    if not os.path.exists(FOLDER_TEMPLATES):
+        print("NU EXISTA FOLDERUL CU TEMPLATES", FOLDER_TEMPLATES)
+        exit(1)
+
+    if not os.path.exists(FOLDER_SCORES):
+        os.makedirs(FOLDER_SCORES)
+    
+    for i in pieces.keys():
+        templates[i] = {}
+
+    for file_name in sorted(os.listdir(FOLDER_TEMPLATES)):
+        if file_name.startswith('a') and file_name.endswith(".jpg"):
+            number = int(file_name.replace('a', '').replace('.jpg', ''))
+            templates[number] = []
+            img = cv.imread(os.path.join(FOLDER_TEMPLATES, file_name))
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            thresh = sharp_n_thresh(img)
+            for deg in range(-15, 16, 2):
+                for erosion in range(-2, 3):
+                    for scale in [0.8, 0.9, 1, 1.1, 1.2]:
+                        # print(deg)
+                        # deg_rad = math.radians(deg)
+                        M = cv.getRotationMatrix2D((thresh.shape[1] // 2, thresh.shape[0] // 2), deg, scale)
+                        thresh_rot = cv.warpAffine(thresh, M, (thresh.shape[1], thresh.shape[0]))
+                        if erosion > 0:
+                            thresh_rot = cv.erode(thresh_rot, np.ones((erosion, erosion), np.uint8), iterations=1)
+                        elif erosion < 0:
+                            thresh_rot = cv.dilate(thresh_rot, np.ones((-erosion, -erosion), np.uint8), iterations=1)
+                        # show_image('img', thresh_rot)
+                        templates[number].append(thresh_rot)
+            # thresh = cv.erode(thresh, np.ones((2, 2), np.uint8), iterations=1)
+            # thresh = cv.dilate(thresh, np.ones((3, 3), np.uint8), iterations=1)
+            # thresh = cv.erode(thresh, np.ones((3, 3), np.uint8), iterations=1)
+            
+            # show_image('img', thresh)
+            # templates[number].append(thresh)
+    # show_in_grid()
+            
     
     print("-*-"*10)
     print("DONE: SETTING UP FOLDERS")
     print("-*-"*10)
 
-
-    if not os.path.exists(FOLDER_SCORES):
-        os.makedirs(FOLDER_SCORES)
+    
 
 def get_possible_points(nimg, current_board, current_positions):
     # for current_position in current_positions:
@@ -93,7 +157,7 @@ def get_files(fast=False):
     print("GETTING FILES")
     print("-*-"*10)
     rez = {}
-    for file_name in sorted(os.listdir(FOLDER_TRAIN)):
+    for file_name in sorted(os.listdir(FOLDER_IMAGES)):
         round, turn = file_name.split("_")
         round = int(round)
         turn_int = int(turn.split(".")[0]) if (turn.split(".")[0]).isdigit() else 0
@@ -101,8 +165,8 @@ def get_files(fast=False):
         #     continue
         # if fast and turn.startswith('10'):
         #     break
-        print(round, turn)
-        file_path = os.path.join(FOLDER_TRAIN, file_name)
+        # print(round, turn)
+        file_path = os.path.join(FOLDER_IMAGES, file_name)
         if round not in rez:
             rez[round] = {
                 "paths": [],
@@ -110,7 +174,8 @@ def get_files(fast=False):
             }
         if turn.endswith("turns.txt"):
             file_content = open(file_path, "r").readlines()
-            rez[round]["turns"] = [line.strip() for line in file_content]
+            rez[round]["turns"] = [line.strip().split(' ') for line in file_content]
+            rez[round]["turns"] = [(player, int(turn)) for player, turn in rez[round]["turns"]]
         elif turn.endswith(".jpg"):
             # img = cv.imread(file_path)
             rez[round]["paths"].append(file_path)
@@ -118,6 +183,174 @@ def get_files(fast=False):
     print("DONE: FILES READ")
     print("-*-"*10)
     return rez
+
+
+def preditct_number(game_board, current_points, patch, patch_padded, y, x, verbose=0):
+    possible_results = set()
+
+    deep_pieces = deepcopy(pieces)
+    for current_position in current_points:
+        if current_position in starting_points:
+            continue
+        nb = game_board[current_position[0]][current_position[1]]
+        nb = isinstance(nb, str) and int(nb) or nb
+        deep_pieces[nb] -= 1
+
+    # get the possible numbers
+    for i in [-1, 0, 1]:
+        for j in [-1, 0, 1]:
+            if abs(i) == abs(j):
+                continue
+
+            nb_1_x = x + i
+            nb_1_y = y + j
+            if nb_1_x < 0 or nb_1_x >= boxes or nb_1_y < 0 or nb_1_y >= boxes:
+                continue
+            if (nb_1_y, nb_1_x) not in current_points:
+                continue
+            if game_board[nb_1_y][nb_1_x] == '' or (game_board[nb_1_y][nb_1_x] in initial_signs and not game_board[nb_1_y][nb_1_x].isnumeric()):
+                continue
+            
+            nb_2_x = nb_1_x + i
+            nb_2_y = nb_1_y + j
+            if nb_2_x < 0 or nb_2_x >= boxes or nb_2_y < 0 or nb_2_y >= boxes:
+                continue
+            if (nb_2_y, nb_2_x) not in current_points:
+                continue
+            if game_board[nb_2_y][nb_2_x] == '' or (game_board[nb_2_y][nb_2_x] in initial_signs and not game_board[nb_2_y][nb_2_x].isnumeric()):
+                continue
+
+            nb_1 = game_board[nb_1_y][nb_1_x]
+            nb_2 = game_board[nb_2_y][nb_2_x]
+
+            if isinstance(nb_1, str) and not nb_1.isnumeric():
+                continue
+            if isinstance(nb_2, str) and not nb_2.isnumeric():
+                continue
+
+            nb_1 = isinstance(nb_1, str) and int(nb_1) or nb_1
+            nb_2 = isinstance(nb_2, str) and int(nb_2) or nb_2
+
+            if (nb_1 + nb_2) in numbers:
+                possible_results.add(nb_1 + nb_2)
+            if nb_1 - nb_2 in numbers and nb_1 - nb_2 >= 0:
+                possible_results.add(nb_1 - nb_2)
+            if nb_2 - nb_1 in numbers and nb_2 - nb_1 >= 0:
+                possible_results.add(nb_2 - nb_1)
+            if (nb_1 * nb_2) in numbers:
+                possible_results.add(nb_1 * nb_2)
+            if nb_2 != 0 and nb_1 / nb_2 in numbers and nb_1 % nb_2 == 0:
+                possible_results.add(nb_1 // nb_2)
+            if nb_1 != 0 and nb_2 / nb_1 in numbers and nb_2 % nb_1 == 0:
+                possible_results.add(nb_2 // nb_1)
+
+            if verbose >= 2:
+                print("Possible results", possible_results)
+            # print("Possible results", possible_results)
+            # print(possible_results)
+            if verbose >= 2:
+                print('nb_1', nb_1, 'nb_2', nb_2)
+                print('nb_1_x', nb_1_x, 'nb_1_y', nb_1_y)
+                print('nb_2_x', nb_2_x, 'nb_2_y', nb_2_y)
+                print('x', x, 'y', y)
+                show_image('patch', patch_padded)
+    final_possible_results = []
+    for nb in possible_results:
+        candidate_list = templates[nb]
+        # comparator = np.zeros((patch_padded.shape[0] + candidate.shape[0], patch_padded.shape[1] + candidate.shape[1], 3), dtype=np.uint8)
+        # comparator[:patch_padded.shape[0], :patch_padded.shape[1]] = patch_padded
+        # comparator[patch_padded.shape[0]:, patch_padded.shape[1]:] = cv.cvtColor(candidate, cv.COLOR_GRAY2BGR)
+        # show_image('comparator', comparator)
+        img_gray = cv.cvtColor(patch_padded, cv.COLOR_BGR2GRAY)
+        img_gray = sharp_n_thresh(img_gray)
+        #add a margin of 30 pixels
+        img_gray = cv.copyMakeBorder(img_gray, 30, 30, 30, 30, cv.BORDER_CONSTANT, value=[0, 0, 0])
+        if verbose >= 2:
+            show_image('img_gray', img_gray)
+        pos_scores = []
+        for candidate in candidate_list:
+            res = cv.matchTemplate(img_gray,candidate,cv.TM_CCORR_NORMED)
+            score = np.max(res)
+            # if verbose >= 2:
+            #     print('score', nb, score)
+            #     show_image('res', res)
+            pos_scores.append(score)
+        score = np.max(pos_scores)
+        # print('alost_final', score, nb)
+        if deep_pieces[nb] <= 0:
+            score /= 2
+        final_possible_results.append((score, nb))
+    final_possible_results = sorted(final_possible_results, key=lambda x: x[0], reverse=True)
+    if verbose >= 1:
+        print('final_possible_results', final_possible_results)
+    if len(final_possible_results) == 0:
+        return 0
+    return final_possible_results[0][1]
+
+
+            
+def get_bonus_score(game_board, current_points, y, x, current):
+    current = int(current) if isinstance(current, str) else current
+    bonus_sum = 0
+    # print('-'*10)
+    for i in [-1, 0, 1]:
+        for j in [-1, 0, 1]:
+            if abs(i) == abs(j):
+                continue
+            new_x = x + i
+            new_y = y + j
+            if new_x < 0 or new_x >= boxes or new_y < 0 or new_y >= boxes:
+                continue
+            if (new_y, new_x) not in current_points:
+                continue
+            if game_board[new_y][new_x] == '' or (game_board[new_y][new_x] in initial_signs and not game_board[new_y][new_x].isnumeric()):
+                continue
+            
+            new_x_2 = new_x + i
+            new_y_2 = new_y + j
+            if new_x_2 < 0 or new_x_2 >= boxes or new_y_2 < 0 or new_y_2 >= boxes:
+                continue
+            if (new_y_2, new_x_2) not in current_points:
+                continue
+            if game_board[new_y_2][new_x_2] == '' or (game_board[new_y_2][new_x_2] in initial_signs and not game_board[new_y_2][new_x_2].isnumeric()):
+                continue
+            # print('new_y', new_y)
+            # print('new_x', new_x)
+            nb_1 = int(game_board[new_y][new_x]) if isinstance(game_board[new_y][new_x], str) else game_board[new_y][new_x]
+            nb_2 = int(game_board[new_y_2][new_x_2]) if isinstance(game_board[new_y_2][new_x_2], str) else game_board[new_y_2][new_x_2]
+
+            # print('verificam pentru BONUS:', nb_1, nb_2, current)            
+            
+            if nb_1 + nb_2 == current and (not game_board[y][x] == '-' and not game_board[y][x] == 'x' and not game_board[y][x] == '/'):
+                bonus_sum += current
+                continue
+            if nb_1 - nb_2 == current and (not game_board[y][x] == '+' and not game_board[y][x] == 'x' and not game_board[y][x] == '/'):
+                bonus_sum += current
+                continue
+            if nb_2 - nb_1 == current and (not game_board[y][x] == '+' and not game_board[y][x] == 'x' and not game_board[y][x] == '/'):
+                bonus_sum += current
+                continue
+            if nb_1 * nb_2 == current and (not game_board[y][x] == '-' and not game_board[y][x] == '+' and not game_board[y][x] == '/'):
+                bonus_sum += current
+                continue
+            if (not nb_2 == 0) and nb_1 // nb_2 == current and nb_1 % nb_2 == 0 and (not game_board[y][x] == '-' and not game_board[y][x] == 'x' and not game_board[y][x] == '+'):
+                bonus_sum += current
+                continue
+            if (not nb_1 == 0) and nb_2 // nb_1 == current and nb_2 % nb_1 == 0 and (not game_board[y][x] == '-' and not game_board[y][x] == 'x' and not game_board[y][x] == '+'):
+                bonus_sum += current
+                continue
+    # if bonus_sum > 0:
+    #     print('ini', bonus_sum)
+    bonus_sum -= current
+    if bonus_sum > 0:
+        # print('post bonus', bonus_sum)
+        return bonus_sum
+    else:
+        return 0
+
+
+            
+    
 
 
 lower_patch = np.array([0, 162, 180])
@@ -132,10 +365,29 @@ for round in range(1, 5):
     # print(files[str(i)])
     prev_patches = None
     prev_board = None
-    current_board = game_board.copy()
-    current_points = starting_points.copy()
+    current_board = deepcopy(game_board)
+    current_points = deepcopy(starting_points)
     turn = 1
+    scores = []
+    score = 0
+
+    score_pointer = 1
+    change_turn_pos = files[round]["turns"][1][1]
+    
     for img_path in files[round]["paths"]:
+        print(round, turn)
+        if turn == change_turn_pos:
+            scores.append(score)
+            print('score:', score)
+            score = 0
+            score_pointer += 1
+            try:
+                change_turn_pos = files[round]["turns"][score_pointer][1]
+            except:
+                change_turn_pos = 51
+                # score = scores[-1]
+
+
         img = cv.imread(img_path)
         res, res_sharp = extrage_careu(img)
         lines_v, lines_h = getLines(res)
@@ -146,6 +398,7 @@ for round in range(1, 5):
         # show_image('lines_h', lines_h)
         # show_image('lines_v', lines_v)
         patches = get_patches(res, lines_v, lines_h)
+        patches_paddded = get_patches(res, lines_v, lines_h, padding=10)
 
         rez = np.zeros((total_size, total_size, 3), dtype=np.uint8)
         for i in range(boxes):
@@ -184,20 +437,23 @@ for round in range(1, 5):
                     chosen = patch
                     chosen_x, chosen_y = x, y
             if chosen is not None:
-                current_board[chosen_y][chosen_x] = '1'
+                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x)
+                score += predicted
+                current_board[chosen_y][chosen_x] = predicted
                 current_points.append((chosen_y, chosen_x))
-                write_annotation_file(round, turn, format_chess_like_position(chosen_y, chosen_x), '1')
+                write_annotation_file(round, turn, format_chess_like_position(chosen_y, chosen_x), predicted)
 
-            prev_patches = patches
-            prev_board = current_board.copy()
+            prev_patches = deepcopy(patches)
+            prev_board = deepcopy(current_board)
         else:
-            for current_position in current_points:
-                y, x = current_position
-                cv.circle(rez, (x * box_size + box_size // 2, y * box_size + box_size // 2), 10, (0, 0, 255), -1)
             possible_points = get_possible_points(res, current_board, current_points)
-            for possible_point in possible_points:
-                y, x = possible_point
-                cv.circle(rez, (x * box_size + box_size // 2, y * box_size + box_size // 2), 10, (0, 255, 0), -1)
+            # print(round, img_path, turn)
+            # for current_position in current_points:
+            #     y, x = current_position
+            #     cv.circle(rez, (x * box_size + box_size // 2, y * box_size + box_size // 2), 10, (0, 0, 255), -1)
+            # for possible_point in possible_points:
+            #     y, x = possible_point
+            #     cv.circle(rez, (x * box_size + box_size // 2, y * box_size + box_size // 2), 10, (0, 255, 0), -1)
             # show_image('img_show_all', rez)
             biggest_diff = 0
             chosen_patch = None
@@ -214,18 +470,48 @@ for round in range(1, 5):
                     chosen_patch = current_patch
                 # show_image('img', diff)
             if chosen_patch is not None:
-                current_board[chosen_y][chosen_x] = '1'
+                # print('turn:', turn)
+                # verb = 2 if turn == 41 else 0
+                verb = 0
+                if verb >= 2:
+                    show_image('res', res)
+                predicted = preditct_number(current_board, current_points, chosen, patches_paddded[chosen_y][chosen_x], chosen_y, chosen_x, verbose=verb)
+                bonus = get_bonus_score(current_board, current_points, chosen_y, chosen_x, predicted)
+                # print('BONUS:', bonus)
+                if current_board[chosen_y][chosen_x] == '3x':
+                    # print('triplu')
+                    score += 3 * (predicted + bonus)
+                elif current_board[chosen_y][chosen_x] == '2x':
+                    # print('dublu')
+                    score += 2 * (predicted + bonus)
+                else:
+                    # print('simplu')
+                    score += predicted + bonus
+                # print('score_now:', score)
+                current_board[chosen_y][chosen_x] = predicted
                 current_points.append((chosen_y, chosen_x))
                 # show_image('img', chosen_patch)
-                show_where = res.copy()
-                cv.circle(show_where, (chosen_x * box_size + box_size // 2, chosen_y * box_size + box_size // 2), 10, (0, 0, 255), -1)
+                # show_where = res.copy()
+                # cv.circle(show_where, (chosen_x * box_size + box_size // 2, chosen_y * box_size + box_size // 2), 10, (0, 0, 255), -1)
                 # show_image('where', show_where)
-                write_annotation_file(round, turn, format_chess_like_position(chosen_y, chosen_x), '1')
+                write_annotation_file(round, turn, format_chess_like_position(chosen_y, chosen_x), predicted)
 
             prev_board = current_board.copy()
             prev_patches = patches
 
         # show_image('img', rez)
         turn += 1
-print(files)
+    
+    rez_score = ''
+    idx = 0
+    # print(scores)
+    for lines in files[round]["turns"]:
+        print(lines, idx)
+        if idx >= len(scores):
+            rez_score += f"{lines[0]} {lines[1]} {score}"
+            break
+        rez_score += f"{lines[0]} {lines[1]} {scores[idx]}\n"
+        idx += 1
+    write_score_file(round, rez_score)
+# print(files)
 
