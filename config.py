@@ -20,9 +20,9 @@
 #####################################
 # REAL GAME
 #####################################
-FOLDER_IMAGES = "./evaluare/"
+FOLDER_IMAGES = "../testare/"
 FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
-FOLDER_GROUND_TRUTH = "./evaluare_gt/"
+FOLDER_GROUND_TRUTH = "./cod_evaluare/evaluare_gt/"
 ROUNDS_FIRST = 1
 ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
 
