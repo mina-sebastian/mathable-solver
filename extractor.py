@@ -147,7 +147,7 @@ def getRangeByCoord(coord, search_range):
 
 def getLines(result):
     gray = cv.cvtColor(result, cv.COLOR_BGR2GRAY)
-    thresh = cv.adaptiveThreshold(~gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, -2)
+    thresh = cv.adaptiveThreshold(~gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 31, -8)
     # show_image('trsh', thresh)
 
     horizontal = thresh.copy()

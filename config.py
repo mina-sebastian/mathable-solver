@@ -1,11 +1,11 @@
 #####################################
 # TRAIN
 #####################################
-FOLDER_IMAGES = "./antrenare"
-FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
-FOLDER_GROUND_TRUTH = "./antrenare/"
-ROUNDS_FIRST = 1
-ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
+# FOLDER_IMAGES = "./antrenare"
+# FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
+# FOLDER_GROUND_TRUTH = "./antrenare/"
+# ROUNDS_FIRST = 1
+# ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
 
 #####################################
 # TEST
@@ -16,9 +16,23 @@ ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when runn
 # ROUNDS_FIRST = 1
 # ROUNDS_LAST = 1 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
 
+
+#####################################
+# REAL GAME
+#####################################
+FOLDER_IMAGES = "./evaluare/"
+FOLDER_SCORES = "./fisiere_solutie/342_Chirus_Mina_Sebastian/"
+FOLDER_GROUND_TRUTH = "./evaluare_gt/"
+ROUNDS_FIRST = 1
+ROUNDS_LAST = 4 # range(ROUNDS_START, ROUNDS_END + 1) '+1' is included when running
+
+
+
+
+#####################################
+# DO NOT CHANGE
+#####################################
 FOLDER_TEMPLATES = "./templates/patches/"
-
-
 box_size = 90
 boxes = 14
 total_size = box_size * boxes
